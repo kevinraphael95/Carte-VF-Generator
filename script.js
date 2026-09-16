@@ -206,6 +206,9 @@ function buildYgoproJson(card) {
     copyright: "© 2026 YGOPRO.ORG",
     attribute: buildAttribute(card),
     id: String(card.id || ""),
+    
+    template: isPendulum ? "Unity" : "Normal",
+
     pendulum: {
       enabled: isPendulum,
       effect: isPendulum ? card.pend_desc || "" : "",
