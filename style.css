@@ -149,8 +149,6 @@ button:hover, .btn:hover {
   max-width: 260px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  object-fit: contain;
-  background: #0b0d12;
 }
 
 .card-json-wrap h2 {

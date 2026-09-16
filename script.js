@@ -107,14 +107,14 @@ function showCard(card) {
   if (img) {
     let showingCropped = true;
 
-    const currentUrl = () => (showingCropped ? img.image_url_cropped : img.image_url);
-    const currentFilename = () =>
-      `${sanitizeFilename(card.name)}${showingCropped ? "" : "-carte-complete"}.jpg`;
-
     const applyImage = () => {
-      cardImageEl.src = currentUrl();
+      const url = showingCropped ? img.image_url_cropped : img.image_url;
+      const suffix = showingCropped ? "" : "-carte-complete";
+      cardImageEl.src = url;
+      downloadImageEl.href = url;
+      downloadImageEl.setAttribute("download", `${sanitizeFilename(card.name)}${suffix}.jpg`);
       downloadImageEl.textContent = showingCropped
-        ? "⬇️ Télécharger l'illustration (dessin seul)"
+        ? "⬇️ Télécharger l'illustration"
         : "⬇️ Télécharger la carte complète";
       toggleImageBtn.textContent = showingCropped
         ? "Voir la carte complète"
@@ -122,24 +122,9 @@ function showCard(card) {
     };
 
     applyImage();
-
     toggleImageBtn.onclick = () => {
       showingCropped = !showingCropped;
       applyImage();
-    };
-
-    downloadImageEl.onclick = async () => {
-      const originalLabel = downloadImageEl.textContent;
-      downloadImageEl.textContent = "⏳ Téléchargement...";
-      try {
-        await downloadImage(currentUrl(), currentFilename());
-      } catch (err) {
-        console.error(err);
-        // Repli : ouvre l'image dans un nouvel onglet pour un clic droit > enregistrer
-        window.open(currentUrl(), "_blank", "noopener");
-      } finally {
-        downloadImageEl.textContent = originalLabel;
-      }
     };
   }
 
@@ -301,23 +286,4 @@ function buildLinkMarkers(card) {
 
 function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|]/g, "").trim();
-}
-
-// Force un vrai téléchargement (et pas une navigation) même pour une image
-// cross-origin : on la récupère en mémoire (blob) puis on télécharge ce blob,
-// qui lui est same-origin — l'attribut `download` fonctionne alors normalement.
-async function downloadImage(url, filename) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Impossible de récupérer l'image (${res.status})`);
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = blobUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  URL.revokeObjectURL(blobUrl);
 }
