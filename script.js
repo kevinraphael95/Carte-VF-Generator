@@ -292,9 +292,8 @@ function buildLayout(baseFrame) {
 // L'API renvoie déjà ce tableau dans `typeline` (sans le mot "Pendulum" ni "Normal"
 // séparé) — on l'utilise tel quel, avec repli si absent (vieilles réponses d'API).
 function buildTypeLine(card) {
-  if (card.type === "Spell Card" || card.type === "Trap Card") {
-    return card.type;
-  }
+  if (card.type === "Spell Card") return "Carte Magie";
+  if (card.type === "Trap Card") return "Carte Piège";
 
   if (Array.isArray(card.typeline) && card.typeline.length) {
     return card.typeline.join("/");
