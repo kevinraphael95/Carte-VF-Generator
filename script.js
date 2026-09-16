@@ -244,8 +244,10 @@ function buildYgoproJson(card) {
     type: buildTypeLine(card),
     icon: buildIcon(card),
     effect: buildEffectText(card),
-    atk: isSpell || isTrap ? "0" : String(card.atk ?? "0"),
-    def: isSpell || isTrap || isLink ? "0" : String(card.def ?? "0"),
+    // Chaîne VIDE, pas "0" : le moteur de rendu fait `if (atk)`, et "0" est une
+    // chaîne non vide donc "vraie" en JS -> il l'afficherait quand même.
+    atk: isSpell || isTrap ? "" : String(card.atk ?? "0"),
+    def: isSpell || isTrap || isLink ? "" : String(card.def ?? "0"),
     serial: "", // pas fourni par l'API — laisse vide ou clique RANDOMIZE dans l'éditeur
     copyright: "© 2026 YGOPRO.ORG",
     attribute: buildAttribute(card),
