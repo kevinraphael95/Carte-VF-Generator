@@ -170,11 +170,7 @@ async function showCard(card) {
       toggleImageBtn.textContent = showingCropped
         ? "Voir la carte complète"
         : "Voir juste le dessin";
-      copyImageUrlBtn.onclick = () => {
-        navigator.clipboard.writeText(url);
-        copyImageUrlBtn.textContent = "✅ URL copiée !";
-        setTimeout(() => (copyImageUrlBtn.textContent = "🔗 Copier l'URL de l'image"), 1500);
-      };
+      copyImageUrlBtn.onclick = () => copyTextToClipboard(url, copyImageUrlBtn, "🔗 Copier l'URL de l'image");
     };
 
     applyImage();
@@ -209,11 +205,7 @@ async function showCard(card) {
 
   jsonOutputEl.value = JSON.stringify(json, null, 2);
 
-  copyJsonBtn.onclick = () => {
-    navigator.clipboard.writeText(jsonOutputEl.value);
-    copyJsonBtn.textContent = "✅ Copié !";
-    setTimeout(() => (copyJsonBtn.textContent = "📋 Copier le JSON"), 1500);
-  };
+  copyJsonBtn.onclick = () => copyTextToClipboard(jsonOutputEl.value, copyJsonBtn, "📋 Copier le JSON");
 
   downloadJsonBtn.onclick = () => {
     const blob = new Blob([jsonOutputEl.value], { type: "application/json" });
@@ -258,6 +250,7 @@ function buildYgoproJson(card) {
     copyright: "© 2026 YGOPRO.ORG",
     attribute: buildAttribute(card),
     id: String(card.id || ""),
+    rarity: "common", // évite le mode "Partial export" côté éditeur (champ obligatoire)
 
     pendulum: {
       enabled: isPendulum,
@@ -386,6 +379,42 @@ function buildLinkMarkers(card) {
   });
 
   return base;
+}
+
+// Copie du texte dans le presse-papier, avec repli si navigator.clipboard est
+// bloqué (ex: page ouverte en file:// plutôt que via un serveur http).
+function copyTextToClipboard(text, buttonEl, resetLabel) {
+  const showResult = (ok) => {
+    buttonEl.textContent = ok ? "✅ Copié !" : "❌ Échec de la copie";
+    setTimeout(() => (buttonEl.textContent = resetLabel), 1500);
+  };
+
+  const fallback = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (err) {
+      ok = false;
+    }
+    document.body.removeChild(textarea);
+    showResult(ok);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => showResult(true),
+      () => fallback()
+    );
+  } else {
+    fallback();
+  }
 }
 
 function sanitizeFilename(name) {
