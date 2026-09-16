@@ -188,7 +188,7 @@ function showCard(card) {
 // du repo ygocarder (https://github.com/maYayoh/ygo-cardmaker).
 // ----------------------------------------------------------------------------
 function buildYgoproJson(card) {
-  const isSpell = card.type === "Carte Magie";
+  const isSpell = card.type === "Spell Card";
   const isTrap = card.type === "Trap Card";
 
   // frameType de l'API ("effect", "xyz_pendulum", "link", "spell"...) donne
