@@ -102,5 +102,11 @@ pour indiquer où chaque estimation est faite.
   généré le laisse vide ; utilise le bouton *RANDOMIZE* dans l'éditeur.
 - Les cartes très récentes (leaks japonais non traduits) ne sont disponibles
   qu'en anglais.
+- Le téléchargement d'image utilise `fetch` + `blob` (nécessaire car
+  `images.ygoprodeck.com` est cross-origin et un simple attribut `download`
+  sur un `<a>` cross-origin est ignoré par les navigateurs — il ouvrirait
+  l'image dans un nouvel onglet au lieu de la télécharger). Si le CDN venait
+  à bloquer le CORS, le site retombe automatiquement sur l'ouverture dans un
+  nouvel onglet (clic droit > Enregistrer l'image).
 - Merci de ne pas spammer l'API (limite annoncée : 20 requêtes/seconde) — ce
   site ne fait qu'une poignée de requêtes par recherche.
