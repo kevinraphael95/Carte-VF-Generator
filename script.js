@@ -197,19 +197,45 @@ function buildYgoproJson(card) {
   const isPendulum = pendulumSuffix === "pendulum";
   const isLink = baseFrame === "link";
 
-  return {
+  const json = {
     version: "1.0.0",
     name: card.name,
     level: String(card.level || card.linkval || 0),
     type: buildTypeLine(card),
     icon: buildIcon(card),
     effect: buildEffectText(card),
-    atk: isSpell || isTrap ? "0" : String(card.atk ?? "0"),
-    def: isSpell || isTrap || isLink ? "0" : String(card.def ?? "0"),
-    serial: "", // pas fourni par l'API — laisse vide ou clique RANDOMIZE dans l'éditeur
+  
+    serial: "",
     copyright: "© 2026 YGOPRO.ORG",
     attribute: buildAttribute(card),
     id: String(card.id || ""),
+  
+    pendulum: {
+      enabled: isPendulum,
+      effect: isPendulum ? card.pend_desc || "" : "",
+      blue: isPendulum ? String(card.scale ?? "0") : "0",
+      red: isPendulum ? String(card.scale ?? "0") : "0",
+      boxSize: "Normal",
+      boxSizeEnabled: true,
+    },
+  
+    variant: "Normal",
+    link: buildLinkMarkers(card),
+    layout: buildLayout(baseFrame),
+    boxSize: (card.desc || "").length > 300 ? "Small" : "Normal",
+  };
+  
+  // ATK / DEF uniquement pour les monstres
+  if (!isSpell && !isTrap) {
+    json.atk = String(card.atk ?? "0");
+  
+    // Les monstres Link n'ont pas de DEF
+    if (!isLink) {
+      json.def = String(card.def ?? "0");
+    }
+  }
+  
+  return json;
 
     pendulum: {
       enabled: isPendulum,
