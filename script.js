@@ -28,6 +28,9 @@ const downloadJsonBtn = document.getElementById("download-json");
 // Cache mémoire : évite de re-appeler l'API pour une recherche déjà faite.
 const searchCache = new Map();
 
+// Cache des données structurelles (anglaises) par ID de carte — voir getStructuralCard().
+const structuralCardCache = new Map();
+
 // Permet d'annuler une recherche encore en vol si l'utilisateur en relance une autre.
 let activeController = null;
 
@@ -110,6 +113,21 @@ async function fetchCards(params, signal) {
   return data.data || [];
 }
 
+// Récupère les champs structurels (type, race, frameType, typeline, atk, def...)
+// en anglais pour une carte, peu importe la langue utilisée pour la recherche.
+// Nécessaire car l'API traduit aussi `type`/`race` avec `language=fr`
+// (ex: "Carte Magie" au lieu de "Spell Card"), ce qui casse toute la logique
+// de buildYgoproJson si on se fie à ces champs tels quels.
+async function getStructuralCard(card) {
+  if (structuralCardCache.has(card.id)) {
+    return structuralCardCache.get(card.id);
+  }
+  const englishCards = await fetchCards({ id: card.id });
+  const structural = englishCards[0] || card;
+  structuralCardCache.set(card.id, structural);
+  return structural;
+}
+
 function renderResults(cards) {
   resultsEl.innerHTML = "";
   cards.slice(0, 25).forEach((card) => {
@@ -130,7 +148,7 @@ function renderResults(cards) {
   });
 }
 
-function showCard(card) {
+async function showCard(card) {
   detailEl.classList.remove("hidden");
   cardTitleEl.textContent = card.name;
   cardMetaEl.textContent = `${card.type} — ID ${card.id}`;
@@ -160,7 +178,29 @@ function showCard(card) {
     };
   }
 
-  const json = buildYgoproJson(card);
+  jsonOutputEl.value = "Génération du JSON...";
+  copyJsonBtn.onclick = null;
+  downloadJsonBtn.onclick = null;
+
+  let json;
+  try {
+    // Champs structurels toujours en anglais + nom/effet dans la langue affichée.
+    const structural = await getStructuralCard(card);
+    const merged = {
+      ...structural,
+      name: card.name,
+      desc: card.desc,
+      pend_desc: card.pend_desc,
+      monster_desc: card.monster_desc,
+    };
+    json = buildYgoproJson(merged);
+  } catch (err) {
+    console.error(err);
+    // Repli : on construit avec les champs tels quels (peut être faux si la
+    // recherche était en français), mieux que de ne rien afficher.
+    json = buildYgoproJson(card);
+  }
+
   jsonOutputEl.value = JSON.stringify(json, null, 2);
 
   copyJsonBtn.onclick = () => {
