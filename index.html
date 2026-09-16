@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGO FR → Card Maker JSON</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🐉 Recherche carte Yu-Gi-Oh! (FR) → JSON pour ygopro.org</h1>
+    <p class="subtitle">
+      Cherche une carte par son nom français, récupère le JSON prêt à être chargé
+      dans <a href="https://ygopro.org/yugioh-card-maker/" target="_blank" rel="noopener">l'éditeur ygopro.org</a>,
+      et télécharge l'illustration officielle.
+    </p>
+  </header>
+
+  <main>
+    <form id="search-form">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Ex: Dragon Blanc aux Yeux Bleus, Magicien Sombre, Pot de Cupidité..."
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Rechercher</button>
+    </form>
+
+    <p id="status"></p>
+
+    <ul id="results" class="results-list"></ul>
+
+    <section id="card-detail" class="card-detail hidden">
+      <div class="card-detail-grid">
+        <div class="card-image-wrap">
+          <img id="card-image" alt="Illustration de la carte" />
+          <a id="download-image" class="btn" download target="_blank" rel="noopener">
+            ⬇️ Télécharger l'illustration
+          </a>
+        </div>
+
+        <div class="card-json-wrap">
+          <h2 id="card-title"></h2>
+          <p id="card-meta"></p>
+
+          <div class="json-actions">
+            <button id="copy-json" type="button">📋 Copier le JSON</button>
+            <button id="download-json" type="button">💾 Télécharger le .json</button>
+          </div>
+
+          <textarea id="json-output" readonly spellcheck="false"></textarea>
+
+          <details>
+            <summary>⚠️ Notes sur la fiabilité du JSON</summary>
+            <p>
+              Le format JSON a été reconstruit par rétro-ingénierie à partir d'un export réel
+              (une carte Magie "Normal"). Les champs <code>name</code>, <code>effect</code>,
+              <code>atk</code>, <code>def</code>, <code>level</code> et <code>attribute</code>
+              (pour Magie/Piège) sont fiables. Les champs <code>icon</code>, <code>type</code>
+              (texte entre crochets) et les valeurs liées aux monstres Pendule/Lien sont des
+              <strong>estimations</strong> — vérifie-les dans l'éditeur et corrige si besoin.
+              Si tu obtiens un export réel d'un monstre (SAVE CARD dans l'éditeur), ouvre une
+              issue ou mets à jour <code>script.js</code> pour affiner le mapping.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Données fournies par l'API <a href="https://ygoprodeck.com/api-guide/" target="_blank" rel="noopener">YGOPRODeck</a>.
+      Merci de ne pas spammer l'API — une recherche = quelques requêtes.
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
