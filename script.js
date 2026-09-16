@@ -2,10 +2,9 @@
 // YGO FR -> ygopro.org Card Maker JSON generator
 // ============================================================================
 // API docs: https://ygoprodeck.com/api-guide/
-// Le format JSON cible a été reverse-engineered depuis un export réel d'une
-// carte Magie "Normal" faite avec l'éditeur https://ygopro.org/yugioh-card-maker/
-// Certains champs (icon, type-en-crochets, pendule/lien) sont des estimations
-// à vérifier/corriger au besoin — voir le bloc <details> dans index.html.
+// Format JSON cible vérifié sur le code source réel de l'éditeur (fork de
+// lauqerm/ygocarder) : src/model/compatible-card.tsx (schéma) et
+// src/util/codec-other-vendor.ts (mapping exact des valeurs).
 // ============================================================================
 
 const API_BASE = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
@@ -185,18 +184,23 @@ function showCard(card) {
 
 // ----------------------------------------------------------------------------
 // Construction du JSON au format ygopro.org card maker
+// Référence : src/model/compatible-card.tsx + src/util/codec-other-vendor.ts
+// du repo ygocarder (https://github.com/maYayoh/ygo-cardmaker).
 // ----------------------------------------------------------------------------
 function buildYgoproJson(card) {
   const isSpell = card.type === "Spell Card";
   const isTrap = card.type === "Trap Card";
-  const isMonster = !isSpell && !isTrap;
-  const isPendulum = card.type.includes("Pendulum");
-  const isLink = card.type === "Link Monster";
+
+  // frameType de l'API ("effect", "xyz_pendulum", "link", "spell"...) donne
+  // directement le frame de base + l'info Pendule, sans avoir à parser `type`.
+  const [baseFrame, pendulumSuffix] = (card.frameType || "").split("_");
+  const isPendulum = pendulumSuffix === "pendulum";
+  const isLink = baseFrame === "link";
 
   return {
     version: "1.0.0",
     name: card.name,
-    level: card.level || card.linkval || 0,
+    level: String(card.level || card.linkval || 0),
     type: buildTypeLine(card),
     icon: buildIcon(card),
     effect: buildEffectText(card),
@@ -206,41 +210,62 @@ function buildYgoproJson(card) {
     copyright: "© 2026 YGOPRO.ORG",
     attribute: buildAttribute(card),
     id: String(card.id || ""),
-    
-    template: isPendulum ? "Unity" : "Normal",
 
     pendulum: {
       enabled: isPendulum,
       effect: isPendulum ? card.pend_desc || "" : "",
-      blue: isPendulum ? String(card.scale ?? "0") : "5",
-      red: isPendulum ? String(card.scale ?? "0") : "5",
+      blue: isPendulum ? String(card.scale ?? "0") : "0",
+      red: isPendulum ? String(card.scale ?? "0") : "0",
       boxSize: "Normal",
       boxSizeEnabled: true,
     },
     variant: "Normal",
     link: buildLinkMarkers(card),
-    layout: isLink ? "Link" : isPendulum ? "Pendulum" : "Normal",
-    boxSize: (card.desc || "").length > 300 ? "Normal" : "Small",
+    layout: buildLayout(baseFrame),
+    boxSize: (card.desc || "").length > 300 ? "Small" : "Normal",
   };
 }
 
-// Texte entre crochets sous le nom, ex "Dragon / Normal", "Spell Card", "Link/Effect"
+// Frame de base -> valeur "layout" attendue par l'éditeur.
+// Table exacte tirée de frameMap dans codec-other-vendor.ts.
+const FRAME_TO_LAYOUT = {
+  normal: "Normal",
+  effect: "Effect",
+  ritual: "Ritual",
+  fusion: "Fusion",
+  synchro: "Synchro",
+  xyz: "Xyz",
+  link: "Link",
+  token: "Token",
+  spell: "Spell",
+  trap: "Trap",
+  skill: "Skill",
+};
+
+function buildLayout(baseFrame) {
+  return FRAME_TO_LAYOUT[baseFrame] || "Effect";
+}
+
+// Texte entre crochets sous le nom, ex "Spellcaster/Effect", "Spell Card", "Fiend/Link".
+// L'API renvoie déjà ce tableau dans `typeline` (sans le mot "Pendulum" ni "Normal"
+// séparé) — on l'utilise tel quel, avec repli si absent (vieilles réponses d'API).
 function buildTypeLine(card) {
   if (card.type === "Spell Card" || card.type === "Trap Card") {
     return card.type;
   }
-  if (card.type === "Link Monster") {
-    return `${card.race} / Link/Effect`;
+
+  if (Array.isArray(card.typeline) && card.typeline.length) {
+    return card.typeline.join("/");
   }
 
-  // Monstres classiques : "Race / Ability [/ Ability2]"
+  // Repli si `typeline` n'est pas fourni par l'API.
   const abilities = [];
   const t = card.type;
-  if (t.includes("Pendulum")) abilities.push("Pendulum");
   if (t.includes("Ritual")) abilities.push("Ritual");
   if (t.includes("Fusion")) abilities.push("Fusion");
   if (t.includes("Synchro")) abilities.push("Synchro");
   if (t.includes("XYZ")) abilities.push("Xyz");
+  if (t.includes("Link")) abilities.push("Link");
   if (t.includes("Gemini")) abilities.push("Gemini");
   if (t.includes("Spirit")) abilities.push("Spirit");
   if (t.includes("Union")) abilities.push("Union");
@@ -251,25 +276,20 @@ function buildTypeLine(card) {
   if (t === "Normal Monster") abilities.push("Normal");
   if (!abilities.length) abilities.push("Effect");
 
-  return `${card.race} / ${abilities.join("/")}`;
+  return `${card.race}/${abilities.join("/")}`;
 }
 
-// Icône (estimation) : sous-type Magie/Piège, ou capacité principale du monstre
+// Icône Magie/Piège (Continuous/Equip/Field/Quick-Play/Ritual/Counter/None).
+// Pour un monstre, ce champ ne sert à rien dans l'éditeur : c'est toujours "None"
+// (voir NO_ICON dans src/model/index.tsx — un monstre n'a pas de sous-icône).
 function buildIcon(card) {
   if (card.type === "Spell Card" || card.type === "Trap Card") {
-    // API race pour Magie/Piège = "Normal", "Quick-Play", "Continuous", "Equip", "Field", "Ritual", "Counter"
     return card.race === "Normal" ? "None" : card.race;
   }
-  if (card.type === "Link Monster") return "Link";
-  if (card.type.includes("XYZ")) return "Xyz";
-  if (card.type.includes("Synchro")) return "Synchro";
-  if (card.type.includes("Fusion")) return "Fusion";
-  if (card.type.includes("Ritual")) return "Ritual";
-  if (card.type === "Normal Monster") return "Normal";
-  return "Effect";
+  return "None";
 }
 
-// SYMBOL dropdown : "Spell" / "Trap" / attribut en Title Case (Light, Dark, Water...)
+// SYMBOL dropdown : "Spell" / "Trap" / attribut en Title Case (Light, Dark, Divine...)
 function buildAttribute(card) {
   if (card.type === "Spell Card") return "Spell";
   if (card.type === "Trap Card") return "Trap";
@@ -287,6 +307,7 @@ function buildEffectText(card) {
 }
 
 // Marqueurs de lien : mapping des noms YGOPRODeck vers les clés de l'éditeur
+// (vérifié identique à `link` dans codec-other-vendor.ts).
 function buildLinkMarkers(card) {
   const base = {
     topLeft: false,
