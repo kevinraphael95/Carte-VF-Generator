@@ -17,6 +17,7 @@ const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const detailEl = document.getElementById("card-detail");
 const cardImageEl = document.getElementById("card-image");
+const copyImageUrlBtn = document.getElementById("copy-image-url");
 const downloadImageEl = document.getElementById("download-image");
 const toggleImageBtn = document.getElementById("toggle-image");
 const cardTitleEl = document.getElementById("card-title");
@@ -169,6 +170,11 @@ async function showCard(card) {
       toggleImageBtn.textContent = showingCropped
         ? "Voir la carte complète"
         : "Voir juste le dessin";
+      copyImageUrlBtn.onclick = () => {
+        navigator.clipboard.writeText(url);
+        copyImageUrlBtn.textContent = "✅ URL copiée !";
+        setTimeout(() => (copyImageUrlBtn.textContent = "🔗 Copier l'URL de l'image"), 1500);
+      };
     };
 
     applyImage();
