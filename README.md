@@ -1,5 +1,6 @@
 # YGO FR → Card Maker JSON
 
+https://kevinraphael95.github.io/Carte-VF-Generator/
 Petit site statique (HTML/CSS/JS, sans build ni dépendances) pour :
 
 1. Chercher une carte Yu-Gi-Oh! par son **nom français**
