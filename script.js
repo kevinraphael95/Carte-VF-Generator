@@ -17,6 +17,7 @@ const resultsEl = document.getElementById("results");
 const detailEl = document.getElementById("card-detail");
 const cardImageEl = document.getElementById("card-image");
 const downloadImageEl = document.getElementById("download-image");
+const toggleImageBtn = document.getElementById("toggle-image");
 const cardTitleEl = document.getElementById("card-title");
 const cardMetaEl = document.getElementById("card-meta");
 const jsonOutputEl = document.getElementById("json-output");
@@ -104,9 +105,29 @@ function showCard(card) {
 
   const img = card.card_images && card.card_images[0];
   if (img) {
-    cardImageEl.src = img.image_url;
-    downloadImageEl.href = img.image_url;
-    downloadImageEl.setAttribute("download", `${sanitizeFilename(card.name)}.jpg`);
+    let showingCropped = true;
+
+    const applyImage = () => {
+      const url = showingCropped ? img.image_url_cropped : img.image_url;
+      cardImageEl.src = url;
+      downloadImageEl.href = url;
+      downloadImageEl.setAttribute(
+        "download",
+        `${sanitizeFilename(card.name)}${showingCropped ? "" : "-carte-complete"}.jpg`
+      );
+      downloadImageEl.textContent = showingCropped
+        ? "⬇️ Télécharger l'illustration (dessin seul)"
+        : "⬇️ Télécharger la carte complète";
+      toggleImageBtn.textContent = showingCropped
+        ? "Voir la carte complète"
+        : "Voir juste le dessin";
+    };
+
+    applyImage();
+    toggleImageBtn.onclick = () => {
+      showingCropped = !showingCropped;
+      applyImage();
+    };
   }
 
   const json = buildYgoproJson(card);

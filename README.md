@@ -1,7 +1,5 @@
 # YGO FR → Card Maker JSON
 
-https://kevinraphael95.github.io/Carte-VF-Generator/
-
 Petit site statique (HTML/CSS/JS, sans build ni dépendances) pour :
 
 1. Chercher une carte Yu-Gi-Oh! par son **nom français**
@@ -11,6 +9,36 @@ Petit site statique (HTML/CSS/JS, sans build ni dépendances) pour :
 
 Les données viennent de l'[API YGOPRODeck](https://ygoprodeck.com/api-guide/),
 qui supporte nativement le français (`&language=fr`).
+
+## Utiliser en local
+
+Ouvre simplement `index.html` dans un navigateur. Si ton navigateur bloque les
+requêtes `fetch` en `file://`, lance un petit serveur local :
+
+```bash
+cd ygo-fr-cardmaker
+python3 -m http.server 8000
+# puis ouvre http://localhost:8000
+```
+
+## Déployer sur GitHub Pages
+
+```bash
+# 1. Crée un repo (via le site GitHub ou gh CLI)
+gh repo create ygo-fr-cardmaker --public --source=. --remote=origin
+
+# 2. Pousse le code
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git push -u origin main
+
+# 3. Active GitHub Pages
+# Sur GitHub : Settings > Pages > Source = "Deploy from a branch",
+# branche "main", dossier "/ (root)". Le site sera dispo sous
+# https://<ton-user>.github.io/ygo-fr-cardmaker/
+```
 
 ## Comment ça marche
 
@@ -26,7 +54,8 @@ qui supporte nativement le français (`&language=fr`).
 ## ⚠️ Fiabilité du format JSON
 
 Le schéma JSON attendu par l'éditeur ygopro.org n'est pas documenté
-publiquement.
+publiquement. Il a été **reconstruit par rétro-ingénierie** à partir d'un
+export réel obtenu via *SAVE CARD* sur une carte Magie "Normal" :
 
 ```json
 {
@@ -49,3 +78,29 @@ publiquement.
   "boxSize": "Small"
 }
 ```
+
+Champs **fiables** (confirmés) : `name`, `effect`, `atk`, `def`, `level`,
+`attribute` pour Magie/Piège (`"Spell"` / `"Trap"`), structure générale.
+
+Champs **estimés** (à vérifier/ajuster dans l'éditeur après chargement) :
+- `icon` pour les monstres (Normal/Effect/Fusion/Synchro/Xyz/Link/Ritual)
+- `attribute` pour les monstres (Title Case type `"Light"`, `"Dark"`...)
+- `type` (le texte entre crochets, ex. `"Dragon / Effect"`)
+- tout ce qui touche Pendule (`pendulum.*`) et Lien (`link.*`, `layout`)
+
+### Comment améliorer la précision
+
+Si tu obtiens un export réel (*SAVE CARD*) d'un monstre Normal, d'un monstre
+à Effet, d'un Pendule ou d'un monstre Lien, envoie/colle le JSON obtenu et
+ajuste les fonctions `buildIcon()`, `buildAttribute()`, `buildTypeLine()` et
+`buildLinkMarkers()` dans `script.js` en conséquence — le code est commenté
+pour indiquer où chaque estimation est faite.
+
+## Limites connues
+
+- L'API YGOPRODeck n'a **pas de champ `serial`** (numéro de série) — le JSON
+  généré le laisse vide ; utilise le bouton *RANDOMIZE* dans l'éditeur.
+- Les cartes très récentes (leaks japonais non traduits) ne sont disponibles
+  qu'en anglais.
+- Merci de ne pas spammer l'API (limite annoncée : 20 requêtes/seconde) — ce
+  site ne fait qu'une poignée de requêtes par recherche.

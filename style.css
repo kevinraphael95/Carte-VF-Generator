@@ -149,6 +149,8 @@ button:hover, .btn:hover {
   max-width: 260px;
   border-radius: 8px;
   border: 1px solid var(--border);
+  object-fit: contain;
+  background: #0b0d12;
 }
 
 .card-json-wrap h2 {
@@ -204,3 +206,16 @@ footer {
 }
 
 footer a { color: var(--accent-2); }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  text-decoration: underline;
+  padding: 4px;
+}
+
+.btn-link:hover {
+  background: none;
+  color: var(--accent);
+}
