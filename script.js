@@ -26,6 +26,12 @@ const jsonOutputEl = document.getElementById("json-output");
 const copyJsonBtn = document.getElementById("copy-json");
 const downloadJsonBtn = document.getElementById("download-json");
 
+const deckInput = document.getElementById("deck-input");
+const deckGenerateBtn = document.getElementById("deck-generate");
+const deckStatusEl = document.getElementById("deck-status");
+const deckResultsEl = document.getElementById("deck-results");
+const deckDownloadZipBtn = document.getElementById("deck-download-zip");
+
 // Cache mémoire : évite de re-appeler l'API pour une recherche déjà faite.
 const searchCache = new Map();
 
@@ -490,6 +496,153 @@ function copyTextToClipboard(text, buttonEl, resetLabel) {
   } else {
     fallback();
   }
+}
+
+// ----------------------------------------------------------------------------
+// Import d'une decklist (Main/Extra/Side Deck) -> génère un JSON par carte.
+// ----------------------------------------------------------------------------
+
+// Une ligne de decklist ressemble à "1 Dark Magician" ou "3x Pot de Cupidité".
+// On ignore les en-têtes de section ("Main Deck:", etc.) et les lignes vides.
+const DECK_LINE_RE = /^(\d+)\s*x?\s+(.+)$/i;
+
+function parseDecklist(text) {
+  const names = [];
+  text.split("\n").forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    if (/^(main|extra|side)\s*deck\s*:?$/i.test(line)) return;
+
+    const match = line.match(DECK_LINE_RE);
+    const name = match ? match[2].trim() : line;
+    const count = match ? parseInt(match[1], 10) : 1;
+
+    for (let i = 0; i < count; i++) names.push(name);
+  });
+  return names;
+}
+
+// Petite pause entre deux appels API pour ne pas la spammer sur une grosse liste.
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function findCardByName(name) {
+  let cards = await fetchCards({ fname: name, language: "fr" });
+  if (!cards.length) cards = await fetchCards({ fname: name });
+  if (!cards.length) return null;
+
+  // Préfère une correspondance exacte de nom (insensible à la casse) si possible,
+  // sinon le premier résultat de la recherche floue.
+  const exact = cards.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  return exact || cards[0];
+}
+
+function setDeckItemStatus(li, statusClass, text) {
+  li.querySelector(".r-type").textContent = text;
+  li.querySelector(".r-type").className = `r-type ${statusClass}`;
+}
+
+deckGenerateBtn.addEventListener("click", async () => {
+  const names = parseDecklist(deckInput.value);
+
+  if (!names.length) {
+    deckStatusEl.textContent = "Colle d'abord une decklist.";
+    return;
+  }
+
+  deckGenerateBtn.disabled = true;
+  deckResultsEl.innerHTML = "";
+  deckDownloadZipBtn.classList.add("hidden");
+  deckStatusEl.textContent = `Génération 0 / ${names.length}...`;
+
+  const generatedFiles = []; // { filename, json }
+  const itemEls = names.map((name) => {
+    const li = document.createElement("li");
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "r-name";
+    nameSpan.textContent = name;
+    const statusSpan = document.createElement("span");
+    statusSpan.className = "r-type deck-status-pending";
+    statusSpan.textContent = "En attente...";
+    li.appendChild(nameSpan);
+    li.appendChild(statusSpan);
+    deckResultsEl.appendChild(li);
+    return li;
+  });
+
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    const li = itemEls[i];
+    setDeckItemStatus(li, "deck-status-pending", "Recherche...");
+
+    try {
+      const found = await findCardByName(name);
+      if (!found) {
+        setDeckItemStatus(li, "deck-status-fail", "❌ Introuvable");
+      } else {
+        const structural = await getStructuralCard(found);
+        const merged = {
+          ...structural,
+          name: found.name,
+          desc: found.desc,
+          pend_desc: found.pend_desc,
+          monster_desc: found.monster_desc,
+          displayRace: found.race,
+        };
+        const json = buildYgoproJson(merged);
+        generatedFiles.push({
+          filename: `${sanitizeFilename(found.name)}.json`,
+          json: JSON.stringify(json, null, 2),
+        });
+        setDeckItemStatus(li, "deck-status-ok", "✅ OK");
+      }
+    } catch (err) {
+      console.error(err);
+      setDeckItemStatus(li, "deck-status-fail", "❌ Erreur API");
+    }
+
+    deckStatusEl.textContent = `Génération ${i + 1} / ${names.length}...`;
+    await wait(150); // ménage l'API entre deux cartes
+  }
+
+  deckGenerateBtn.disabled = false;
+  deckStatusEl.textContent = `Terminé : ${generatedFiles.length} / ${names.length} carte(s) générée(s).`;
+
+  if (generatedFiles.length) {
+    deckDownloadZipBtn.classList.remove("hidden");
+    deckDownloadZipBtn.onclick = () => downloadAsZip(generatedFiles);
+  }
+});
+
+async function downloadAsZip(files) {
+  if (typeof JSZip === "undefined") {
+    alert("JSZip n'a pas pu être chargé (vérifie ta connexion). Impossible de créer le .zip.");
+    return;
+  }
+  const zip = new JSZip();
+  const usedNames = new Map();
+
+  files.forEach(({ filename, json }) => {
+    // Évite d'écraser deux fichiers de même nom (ex: doublons dans le deck).
+    let finalName = filename;
+    if (usedNames.has(filename)) {
+      const n = usedNames.get(filename) + 1;
+      usedNames.set(filename, n);
+      finalName = filename.replace(/\.json$/, `-${n}.json`);
+    } else {
+      usedNames.set(filename, 1);
+    }
+    zip.file(finalName, json);
+  });
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cartes-ygopro.zip";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function sanitizeFilename(name) {

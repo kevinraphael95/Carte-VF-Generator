@@ -80,7 +80,7 @@ button:hover, .btn:hover {
   color: #0f1115;
 }
 
-#status {
+#status, #deck-status {
   color: var(--muted);
   min-height: 1.2em;
 }
@@ -120,6 +120,54 @@ button:hover, .btn:hover {
 }
 
 .hidden { display: none !important; }
+
+/* Import de decklist */
+.deck-import {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.deck-import h2 {
+  margin-top: 0;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.deck-import code {
+  background: var(--panel-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+#deck-input {
+  width: 100%;
+  min-height: 160px;
+  background: #0b0d12;
+  color: #c9d6e3;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+#deck-generate, #deck-download-zip {
+  margin-right: 8px;
+  margin-bottom: 12px;
+}
+
+.results-list.deck-status-list li {
+  cursor: default;
+}
+
+.deck-status-ok { color: #7fd88f; }
+.deck-status-fail { color: #e08a8a; }
+.deck-status-pending { color: var(--muted); }
 
 .card-detail-grid {
   display: grid;
