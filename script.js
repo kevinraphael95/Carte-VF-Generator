@@ -293,8 +293,41 @@ function buildLayout(baseFrame) {
 // Texte entre crochets sous le nom, ex "Spellcaster/Effect", "Spell Card", "Fiend/Link".
 // L'API renvoie déjà ce tableau dans `typeline` (sans le mot "Pendulum" ni "Normal"
 // séparé) — on l'utilise tel quel, avec repli si absent (vieilles réponses d'API).
-// Traduction des mots-clés d'aptitude (le reste du typeline après la race).
-// Termes officiels tels qu'utilisés sur les cartes OCG en français.
+// Traduction des races de monstre — l'API ne traduit JAMAIS ce champ, même
+// avec language=fr (vérifié : "Sea Serpent" reste "Sea Serpent"). Il faut donc
+// une table manuelle, avec les termes officiels du jeu en français.
+const RACE_FR = {
+  Aqua: "Aqua",
+  Beast: "Bête",
+  "Beast-Warrior": "Bête-Guerrier",
+  "Creator God": "Dieu Créateur",
+  Cyberse: "Cyberse",
+  Dinosaur: "Dinosaure",
+  "Divine-Beast": "Bête Divine",
+  Dragon: "Dragon",
+  Fairy: "Fée",
+  Fiend: "Démon",
+  Fish: "Poisson",
+  Illusion: "Illusion",
+  Insect: "Insecte",
+  Machine: "Machine",
+  Plant: "Plante",
+  Psychic: "Psychique",
+  Pyro: "Pyro",
+  Reptile: "Reptile",
+  Rock: "Rocher",
+  "Sea Serpent": "Serpent de Mer",
+  Spellcaster: "Magicien",
+  Thunder: "Tonnerre",
+  Warrior: "Guerrier",
+  "Winged Beast": "Bête Ailée",
+  Wyrm: "Wyrm",
+  Zombie: "Zombie",
+};
+
+function translateRace(race) {
+  return RACE_FR[race] || race;
+}
 const ABILITY_FR = {
   Effect: "Effet",
   Normal: "Normal",
@@ -320,10 +353,9 @@ function buildTypeLine(card) {
   if (card.type === "Spell Card") return "Carte Magie";
   if (card.type === "Trap Card") return "Carte Piège";
 
-  // La race affichée doit être celle de la langue de recherche (ex: "Magicien"
-  // en FR, pas "Spellcaster") — displayRace vient de la carte d'origine, alors
-  // que `typeline`/`race` (structurels) restent en anglais pour la logique.
-  const displayRace = card.displayRace || card.race;
+  // La race n'est jamais traduite par l'API (même en language=fr) -> table
+  // de traduction manuelle (RACE_FR) obligatoire.
+  const displayRace = translateRace(card.race);
 
   if (Array.isArray(card.typeline) && card.typeline.length) {
     return [displayRace, ...translateAbilities(card.typeline.slice(1))].join("/");
