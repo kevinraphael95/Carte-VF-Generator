@@ -319,12 +319,24 @@ function buildTypeLine(card) {
   return `${card.race}/${abilities.join("/")}`;
 }
 
-// Icône Magie/Piège (Continuous/Equip/Field/Quick-Play/Ritual/Counter/None).
+// Icône Magie/Piège (Continuous/Counter/Equip/Field/Quick-play/Ritual/None).
 // Pour un monstre, ce champ ne sert à rien dans l'éditeur : c'est toujours "None"
 // (voir NO_ICON dans src/model/index.tsx — un monstre n'a pas de sous-icône).
+// Mapping exact tiré de cardIconMap dans codec-other-vendor.ts — attention à la
+// casse ("Quick-play" avec un p minuscule, pas "Quick-Play" comme le renvoie l'API).
+const RACE_TO_ICON = {
+  Continuous: "Continuous",
+  Counter: "Counter",
+  Equip: "Equip",
+  Field: "Field",
+  "Quick-Play": "Quick-play",
+  Ritual: "Ritual",
+  Normal: "None",
+};
+
 function buildIcon(card) {
   if (card.type === "Spell Card" || card.type === "Trap Card") {
-    return card.race === "Normal" ? "None" : card.race;
+    return RACE_TO_ICON[card.race] || "None";
   }
   return "None";
 }
