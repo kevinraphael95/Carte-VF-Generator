@@ -194,6 +194,9 @@ async function showCard(card) {
       desc: card.desc,
       pend_desc: card.pend_desc,
       monster_desc: card.monster_desc,
+      // Race d'origine (française si la recherche était en FR) pour l'affichage
+      // du type sous le nom — voir buildTypeLine.
+      displayRace: card.race,
     };
     json = buildYgoproJson(merged);
   } catch (err) {
@@ -290,12 +293,40 @@ function buildLayout(baseFrame) {
 // Texte entre crochets sous le nom, ex "Spellcaster/Effect", "Spell Card", "Fiend/Link".
 // L'API renvoie déjà ce tableau dans `typeline` (sans le mot "Pendulum" ni "Normal"
 // séparé) — on l'utilise tel quel, avec repli si absent (vieilles réponses d'API).
+// Traduction des mots-clés d'aptitude (le reste du typeline après la race).
+// Termes officiels tels qu'utilisés sur les cartes OCG en français.
+const ABILITY_FR = {
+  Effect: "Effet",
+  Normal: "Normal",
+  Fusion: "Fusion",
+  Synchro: "Synchro",
+  Xyz: "Xyz",
+  Ritual: "Rituel",
+  Link: "Lien",
+  Tuner: "Syntoniseur",
+  Flip: "Retournement",
+  Spirit: "Esprit",
+  Union: "Union",
+  Toon: "Toon",
+  Gemini: "Gémeau",
+  Pendulum: "Pendule",
+};
+
+function translateAbilities(entries) {
+  return entries.map((entry) => ABILITY_FR[entry] || entry);
+}
+
 function buildTypeLine(card) {
   if (card.type === "Spell Card") return "Carte Magie";
   if (card.type === "Trap Card") return "Carte Piège";
 
+  // La race affichée doit être celle de la langue de recherche (ex: "Magicien"
+  // en FR, pas "Spellcaster") — displayRace vient de la carte d'origine, alors
+  // que `typeline`/`race` (structurels) restent en anglais pour la logique.
+  const displayRace = card.displayRace || card.race;
+
   if (Array.isArray(card.typeline) && card.typeline.length) {
-    return card.typeline.join("/");
+    return [displayRace, ...translateAbilities(card.typeline.slice(1))].join("/");
   }
 
   // Repli si `typeline` n'est pas fourni par l'API.
@@ -316,7 +347,7 @@ function buildTypeLine(card) {
   if (t === "Normal Monster") abilities.push("Normal");
   if (!abilities.length) abilities.push("Effect");
 
-  return `${card.race}/${abilities.join("/")}`;
+  return `${displayRace}/${translateAbilities(abilities).join("/")}`;
 }
 
 // Icône Magie/Piège (Continuous/Counter/Equip/Field/Quick-play/Ritual/None).
