@@ -300,9 +300,15 @@ button, .btn-primary, .btn-secondary, .btn-link {
   margin: 10px 0 18px;
 }
 
+.header-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0 0 20px;
+}
+
 .card-detail-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 1.3fr 1fr;
   gap: 22px;
   align-items: start;
   margin-bottom: 20px;
@@ -314,14 +320,14 @@ button, .btn-primary, .btn-secondary, .btn-link {
   background: var(--label-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 16px;
+  padding: 20px;
 }
 
 #card-image {
   display: block;
   width: 100%;
-  max-width: 210px;
-  margin: 0 auto 14px;
+  max-width: 230px;
+  margin: 0 auto 16px;
   border-radius: 4px;
 }
 
