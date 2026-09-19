@@ -21,9 +21,7 @@ const copyImageUrlBtn = document.getElementById("copy-image-url");
 const downloadImageEl = document.getElementById("download-image");
 const toggleImageBtn = document.getElementById("toggle-image");
 const cardTitleEl = document.getElementById("card-title");
-const breadcrumbNameEl = document.getElementById("breadcrumb-name");
-const miniTableBody = document.getElementById("mini-table-body");
-const infoTableBody = document.getElementById("info-table-body");
+const cardMetaEl = document.getElementById("card-meta");
 const jsonOutputEl = document.getElementById("json-output");
 const copyJsonBtn = document.getElementById("copy-json");
 const downloadJsonBtn = document.getElementById("download-json");
@@ -43,34 +41,6 @@ const structuralCardCache = new Map();
 
 // Permet d'annuler une recherche encore en vol si l'utilisateur en relance une autre.
 let activeController = null;
-
-// ----------------------------------------------------------------------------
-// Thème clair / sombre — respecte le choix du système au premier chargement,
-// puis se souvient du choix explicite de l'utilisateur.
-// ----------------------------------------------------------------------------
-const THEME_KEY = "ygo-fr-cardmaker-theme";
-const themeToggleBtn = document.getElementById("theme-toggle");
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-}
-
-(function initTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved) {
-    applyTheme(saved);
-  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    applyTheme("dark");
-  }
-})();
-
-themeToggleBtn.addEventListener("click", () => {
-  const current = document.documentElement.getAttribute("data-theme") || "light";
-  const next = current === "dark" ? "light" : "dark";
-  applyTheme(next);
-  localStorage.setItem(THEME_KEY, next);
-  themeToggleBtn.blur(); // évite que Entrée/Espace ailleurs sur la page ne re-déclenche le bouton
-});
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -170,7 +140,6 @@ function renderResults(cards) {
   resultsEl.innerHTML = "";
   cards.slice(0, 25).forEach((card) => {
     const li = document.createElement("li");
-    li.style.setProperty("--card-color", accentForCard(card));
 
     const name = document.createElement("span");
     name.className = "r-name";
@@ -187,35 +156,10 @@ function renderResults(cards) {
   });
 }
 
-// ----------------------------------------------------------------------------
-// Couleur d'accent par type de carte, calquée sur les cadres du vrai jeu.
-// `frameType` est un identifiant interne ("effect", "link", "spell"...) que
-// l'API ne traduit jamais, même avec language=fr — fiable pour la couleur.
-// ----------------------------------------------------------------------------
-const FRAME_ACCENT = {
-  normal: "var(--f-normal)",
-  effect: "var(--f-effect)",
-  ritual: "var(--f-ritual)",
-  fusion: "var(--f-fusion)",
-  synchro: "var(--f-synchro)",
-  xyz: "var(--f-xyz)",
-  link: "var(--f-link)",
-  spell: "var(--f-spell)",
-  trap: "var(--f-trap)",
-  skill: "var(--f-skill)",
-  token: "var(--f-token)",
-};
-
-function accentForCard(card) {
-  const [baseFrame] = (card.frameType || "").split("_");
-  return FRAME_ACCENT[baseFrame] || "var(--gold-dim)";
-}
-
 async function showCard(card) {
   detailEl.classList.remove("hidden");
   cardTitleEl.textContent = card.name;
-  breadcrumbNameEl.textContent = card.name;
-  detailEl.style.setProperty("--card-color", accentForCard(card));
+  cardMetaEl.textContent = `${card.type} — ID ${card.id}`;
 
   const img = card.card_images && card.card_images[0];
   if (img) {
@@ -246,14 +190,12 @@ async function showCard(card) {
   jsonOutputEl.value = "Génération du JSON...";
   copyJsonBtn.onclick = null;
   downloadJsonBtn.onclick = null;
-  infoTableBody.innerHTML = "";
-  miniTableBody.innerHTML = "";
 
-  let merged;
+  let json;
   try {
     // Champs structurels toujours en anglais + nom/effet dans la langue affichée.
     const structural = await getStructuralCard(card);
-    merged = {
+    const merged = {
       ...structural,
       name: card.name,
       desc: card.desc,
@@ -263,17 +205,14 @@ async function showCard(card) {
       // du type sous le nom — voir buildTypeLine.
       displayRace: card.race,
     };
+    json = buildYgoproJson(merged);
   } catch (err) {
     console.error(err);
-    // Repli : on affiche avec les champs tels quels (peut être faux si la
+    // Repli : on construit avec les champs tels quels (peut être faux si la
     // recherche était en français), mieux que de ne rien afficher.
-    merged = card;
+    json = buildYgoproJson(card);
   }
 
-  populateInfoTable(merged);
-  populateMiniTable(merged);
-
-  const json = buildYgoproJson(merged);
   jsonOutputEl.value = JSON.stringify(json, null, 2);
 
   copyJsonBtn.onclick = () => copyTextToClipboard(jsonOutputEl.value, copyJsonBtn, "📋 Copier le JSON");
@@ -478,112 +417,6 @@ function buildAttribute(card) {
   if (card.type === "Trap Card") return "Trap";
   if (!card.attribute) return "Light";
   return card.attribute.charAt(0) + card.attribute.slice(1).toLowerCase();
-}
-
-// ----------------------------------------------------------------------------
-// Remplissage de la fiche carte (table d'infos + description), affichée à
-// côté de l'image, indépendamment du JSON généré pour l'éditeur.
-// ----------------------------------------------------------------------------
-const ATTRIBUTE_FR = {
-  LIGHT: "Lumière",
-  DARK: "Ténèbres",
-  WATER: "Eau",
-  FIRE: "Feu",
-  EARTH: "Terre",
-  WIND: "Vent",
-  DIVINE: "Divin",
-};
-
-function translateAttributeLabel(attr) {
-  if (!attr) return "—";
-  return ATTRIBUTE_FR[attr.toUpperCase()] || attr;
-}
-
-const ICON_FR = {
-  Normal: "Normale",
-  Continuous: "Continu",
-  "Quick-Play": "Jeu Rapide",
-  Equip: "Équipement",
-  Field: "Terrain",
-  Ritual: "Rituel",
-  Counter: "Contre",
-};
-
-function translateIconLabel(race) {
-  return ICON_FR[race] || race || "—";
-}
-
-function addInfoRow(label, value) {
-  const tr = document.createElement("tr");
-  const th = document.createElement("th");
-  th.textContent = label;
-  const td = document.createElement("td");
-  td.textContent = value;
-  tr.appendChild(th);
-  tr.appendChild(td);
-  infoTableBody.appendChild(tr);
-}
-
-function populateInfoTable(card) {
-  const isSpell = card.type === "Spell Card";
-  const isTrap = card.type === "Trap Card";
-  const [, pendulumSuffix] = (card.frameType || "").split("_");
-  const isPendulum = pendulumSuffix === "pendulum";
-
-  infoTableBody.innerHTML = "";
-  addInfoRow("Nom", card.name);
-  addInfoRow("Type", buildTypeLine(card));
-
-  if (isSpell || isTrap) {
-    addInfoRow("Icône", translateIconLabel(card.race));
-  } else {
-    addInfoRow("Attribut", translateAttributeLabel(card.attribute));
-  }
-
-  addInfoRow("Description", card.desc || "—");
-
-  if (isPendulum && card.pend_desc) {
-    addInfoRow("Effet Pendule", card.pend_desc);
-  }
-
-  addInfoRow("ID carte", String(card.id ?? "—"));
-}
-
-// Petite table sous l'image, façon "set / min / mtgo" des fiches wiki :
-// résume les stats de jeu (ATK/DEF/Niveau pour un monstre, format/icône sinon).
-function populateMiniTable(card) {
-  const isSpell = card.type === "Spell Card";
-  const isTrap = card.type === "Trap Card";
-  const [baseFrame] = (card.frameType || "").split("_");
-  const isLink = baseFrame === "link";
-  const isXyz = baseFrame === "xyz";
-
-  miniTableBody.innerHTML = "";
-
-  const headerRow = document.createElement("tr");
-  const valueRow = document.createElement("tr");
-
-  const addColumn = (label, value) => {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headerRow.appendChild(th);
-    const td = document.createElement("td");
-    td.textContent = value;
-    valueRow.appendChild(td);
-  };
-
-  if (isSpell || isTrap) {
-    addColumn("Format", "TCG");
-    addColumn("Icône", translateIconLabel(card.race));
-    addColumn("ID", String(card.id ?? "—"));
-  } else {
-    addColumn("ATK", String(card.atk ?? "?"));
-    if (!isLink) addColumn("DEF", String(card.def ?? "?"));
-    addColumn(isXyz ? "Rang" : isLink ? "Lien" : "Niveau", String(card.level ?? card.linkval ?? "—"));
-  }
-
-  miniTableBody.appendChild(headerRow);
-  miniTableBody.appendChild(valueRow);
 }
 
 // Texte d'effet — pour les Pendules, l'éditeur sépare effet pendule / effet monstre,
