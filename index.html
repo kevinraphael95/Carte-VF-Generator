@@ -71,15 +71,17 @@ Side Deck:
 
     <section id="card-detail" class="card-detail hidden">
       <p class="breadcrumb">YGO <span>/</span> Résultats <span>/</span> <strong id="breadcrumb-name"></strong></p>
+      <h2 id="card-title" class="card-name"></h2>
+      <div class="accent-bar"></div>
 
       <div class="card-detail-grid">
         <div class="card-side">
-          <div class="card-image-wrap">
+          <div class="card-panel">
             <img id="card-image" alt="Illustration de la carte" />
+            <table class="mini-table">
+              <tbody id="mini-table-body"></tbody>
+            </table>
           </div>
-          <table class="mini-table">
-            <tbody id="mini-table-body"></tbody>
-          </table>
           <div class="image-actions">
             <button id="copy-image-url" type="button" class="btn-secondary btn-sm">Copier l'URL</button>
             <a id="download-image" class="btn-secondary btn-sm" download target="_blank" rel="noopener">Télécharger</a>
@@ -88,9 +90,6 @@ Side Deck:
         </div>
 
         <div class="panel card-info">
-          <h2 id="card-title" class="card-name"></h2>
-          <div class="accent-bar"></div>
-
           <table class="info-table">
             <tbody id="info-table-body"></tbody>
           </table>
