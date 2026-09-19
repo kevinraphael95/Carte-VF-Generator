@@ -69,6 +69,7 @@ themeToggleBtn.addEventListener("click", () => {
   const next = current === "dark" ? "light" : "dark";
   applyTheme(next);
   localStorage.setItem(THEME_KEY, next);
+  themeToggleBtn.blur(); // évite que Entrée/Espace ailleurs sur la page ne re-déclenche le bouton
 });
 
 form.addEventListener("submit", async (e) => {
