@@ -1,21 +1,23 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YGO FR → Card Maker JSON</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="table-glow" aria-hidden="true"></div>
-
   <header class="site-header">
     <div class="header-inner">
-      <p class="eyebrow">Fan-tool non officiel</p>
-      <h1><span class="rune">﹁</span> Recherche carte Yu&#8209;Gi&#8209;Oh&#33; VF <span class="rune">﹂</span></h1>
+      <div class="header-top">
+        <h1>Recherche carte Yu-Gi-Oh! (FR) → JSON</h1>
+        <button id="theme-toggle" type="button" class="theme-toggle" aria-label="Changer de thème">
+          <span class="icon-light">☀️</span><span class="icon-dark">🌙</span>
+        </button>
+      </div>
       <p class="subtitle">
         Cherche une carte par son nom français, récupère le JSON prêt à être chargé
         dans <a href="https://ygopro.org/yugioh-card-maker/" target="_blank" rel="noopener">l'éditeur ygopro.org</a>
@@ -29,7 +31,7 @@
       <input
         id="search-input"
         type="text"
-        placeholder="Dragon Blanc aux Yeux Bleus, Magicien Sombre, Pot de Cupidité…"
+        placeholder="Ex : Dragon Blanc aux Yeux Bleus, Magicien Sombre, Pot de Cupidité..."
         autocomplete="off"
         required
       />
@@ -40,8 +42,8 @@
 
     <ul id="results" class="results-list"></ul>
 
-    <section class="deck-import">
-      <h2><span class="section-mark"></span>Générer plusieurs cartes depuis une decklist</h2>
+    <section class="panel deck-import">
+      <h2>Générer plusieurs cartes depuis une decklist</h2>
       <p class="subtitle">
         Colle une liste au format Main/Extra/Side Deck (ex : export ygoprodeck/YDKe classique),
         une carte par ligne : <code>1 Nom de la carte</code>.
@@ -68,33 +70,34 @@ Side Deck:
     </section>
 
     <section id="card-detail" class="card-detail hidden">
+      <p class="breadcrumb">YGO <span>/</span> Résultats <span>/</span> <strong id="breadcrumb-name"></strong></p>
+
       <div class="card-detail-grid">
-        <figure class="card-image-wrap">
-          <img id="card-image" alt="Illustration de la carte" />
-          <figcaption class="image-actions">
+        <div class="card-side">
+          <div class="card-image-wrap">
+            <img id="card-image" alt="Illustration de la carte" />
+          </div>
+          <table class="mini-table">
+            <tbody id="mini-table-body"></tbody>
+          </table>
+          <div class="image-actions">
             <button id="copy-image-url" type="button" class="btn-secondary btn-sm">Copier l'URL</button>
             <a id="download-image" class="btn-secondary btn-sm" download target="_blank" rel="noopener">Télécharger</a>
             <button id="toggle-image" type="button" class="btn-link">Voir la carte complète</button>
-          </figcaption>
-        </figure>
+          </div>
+        </div>
 
-        <div class="card-info">
-          <p id="card-kicker" class="card-kicker"></p>
+        <div class="panel card-info">
           <h2 id="card-title" class="card-name"></h2>
+          <div class="accent-bar"></div>
 
           <table class="info-table">
             <tbody id="info-table-body"></tbody>
           </table>
-
-          <div class="card-desc-wrap">
-            <h3>Description</h3>
-            <p id="card-desc"></p>
-            <p id="card-pend-desc-wrap" class="hidden"><strong>Effet Pendule —</strong> <span id="card-pend-desc"></span></p>
-          </div>
         </div>
       </div>
 
-      <div class="json-panel">
+      <div class="panel json-panel">
         <div class="json-panel-head">
           <h3>JSON pour l'éditeur ygopro.org</h3>
           <div class="json-actions">

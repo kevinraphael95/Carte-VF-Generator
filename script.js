@@ -21,11 +21,9 @@ const copyImageUrlBtn = document.getElementById("copy-image-url");
 const downloadImageEl = document.getElementById("download-image");
 const toggleImageBtn = document.getElementById("toggle-image");
 const cardTitleEl = document.getElementById("card-title");
-const cardKickerEl = document.getElementById("card-kicker");
+const breadcrumbNameEl = document.getElementById("breadcrumb-name");
+const miniTableBody = document.getElementById("mini-table-body");
 const infoTableBody = document.getElementById("info-table-body");
-const cardDescEl = document.getElementById("card-desc");
-const cardPendDescWrapEl = document.getElementById("card-pend-desc-wrap");
-const cardPendDescEl = document.getElementById("card-pend-desc");
 const jsonOutputEl = document.getElementById("json-output");
 const copyJsonBtn = document.getElementById("copy-json");
 const downloadJsonBtn = document.getElementById("download-json");
@@ -45,6 +43,33 @@ const structuralCardCache = new Map();
 
 // Permet d'annuler une recherche encore en vol si l'utilisateur en relance une autre.
 let activeController = null;
+
+// ----------------------------------------------------------------------------
+// Thème clair / sombre — respecte le choix du système au premier chargement,
+// puis se souvient du choix explicite de l'utilisateur.
+// ----------------------------------------------------------------------------
+const THEME_KEY = "ygo-fr-cardmaker-theme";
+const themeToggleBtn = document.getElementById("theme-toggle");
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) {
+    applyTheme(saved);
+  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    applyTheme("dark");
+  }
+})();
+
+themeToggleBtn.addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme") || "light";
+  const next = current === "dark" ? "light" : "dark";
+  applyTheme(next);
+  localStorage.setItem(THEME_KEY, next);
+});
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -188,6 +213,7 @@ function accentForCard(card) {
 async function showCard(card) {
   detailEl.classList.remove("hidden");
   cardTitleEl.textContent = card.name;
+  breadcrumbNameEl.textContent = card.name;
   detailEl.style.setProperty("--card-color", accentForCard(card));
 
   const img = card.card_images && card.card_images[0];
@@ -220,9 +246,7 @@ async function showCard(card) {
   copyJsonBtn.onclick = null;
   downloadJsonBtn.onclick = null;
   infoTableBody.innerHTML = "";
-  cardKickerEl.textContent = "";
-  cardDescEl.textContent = "";
-  cardPendDescWrapEl.classList.add("hidden");
+  miniTableBody.innerHTML = "";
 
   let merged;
   try {
@@ -246,7 +270,7 @@ async function showCard(card) {
   }
 
   populateInfoTable(merged);
-  populateDescription(merged);
+  populateMiniTable(merged);
 
   const json = buildYgoproJson(merged);
   jsonOutputEl.value = JSON.stringify(json, null, 2);
@@ -502,48 +526,63 @@ function addInfoRow(label, value) {
 function populateInfoTable(card) {
   const isSpell = card.type === "Spell Card";
   const isTrap = card.type === "Trap Card";
-  const [baseFrame, pendulumSuffix] = (card.frameType || "").split("_");
+  const [, pendulumSuffix] = (card.frameType || "").split("_");
   const isPendulum = pendulumSuffix === "pendulum";
-  const isLink = baseFrame === "link";
-  const isXyz = baseFrame === "xyz";
-
-  cardKickerEl.textContent = isSpell
-    ? "Carte Magie"
-    : isTrap
-    ? "Carte Piège"
-    : "Carte Monstre";
 
   infoTableBody.innerHTML = "";
+  addInfoRow("Nom", card.name);
   addInfoRow("Type", buildTypeLine(card));
 
   if (isSpell || isTrap) {
     addInfoRow("Icône", translateIconLabel(card.race));
   } else {
     addInfoRow("Attribut", translateAttributeLabel(card.attribute));
-    if (isLink) {
-      addInfoRow("Link Rating", String(card.linkval ?? "—"));
-    } else if (isXyz) {
-      addInfoRow("Rang", String(card.level ?? "—"));
-    } else {
-      addInfoRow("Niveau", String(card.level ?? "—"));
-    }
-    if (isPendulum) {
-      addInfoRow("Échelle Pendule", String(card.scale ?? "—"));
-    }
-    addInfoRow("ATK / DEF", `${card.atk ?? "?"} / ${isLink ? "—" : card.def ?? "?"}`);
+  }
+
+  addInfoRow("Description", card.desc || "—");
+
+  if (isPendulum && card.pend_desc) {
+    addInfoRow("Effet Pendule", card.pend_desc);
   }
 
   addInfoRow("ID carte", String(card.id ?? "—"));
 }
 
-function populateDescription(card) {
-  cardDescEl.textContent = card.desc || "";
-  if ((card.type || "").includes("Pendulum") && card.pend_desc) {
-    cardPendDescEl.textContent = card.pend_desc;
-    cardPendDescWrapEl.classList.remove("hidden");
+// Petite table sous l'image, façon "set / min / mtgo" des fiches wiki :
+// résume les stats de jeu (ATK/DEF/Niveau pour un monstre, format/icône sinon).
+function populateMiniTable(card) {
+  const isSpell = card.type === "Spell Card";
+  const isTrap = card.type === "Trap Card";
+  const [baseFrame] = (card.frameType || "").split("_");
+  const isLink = baseFrame === "link";
+  const isXyz = baseFrame === "xyz";
+
+  miniTableBody.innerHTML = "";
+
+  const headerRow = document.createElement("tr");
+  const valueRow = document.createElement("tr");
+
+  const addColumn = (label, value) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headerRow.appendChild(th);
+    const td = document.createElement("td");
+    td.textContent = value;
+    valueRow.appendChild(td);
+  };
+
+  if (isSpell || isTrap) {
+    addColumn("Format", "TCG");
+    addColumn("Icône", translateIconLabel(card.race));
+    addColumn("ID", String(card.id ?? "—"));
   } else {
-    cardPendDescWrapEl.classList.add("hidden");
+    addColumn("ATK", String(card.atk ?? "?"));
+    if (!isLink) addColumn("DEF", String(card.def ?? "?"));
+    addColumn(isXyz ? "Rang" : isLink ? "Lien" : "Niveau", String(card.level ?? card.linkval ?? "—"));
   }
+
+  miniTableBody.appendChild(headerRow);
+  miniTableBody.appendChild(valueRow);
 }
 
 // Texte d'effet — pour les Pendules, l'éditeur sépare effet pendule / effet monstre,
