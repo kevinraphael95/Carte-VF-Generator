@@ -31,6 +31,7 @@ const deckGenerateBtn = document.getElementById("deck-generate");
 const deckStatusEl = document.getElementById("deck-status");
 const deckResultsEl = document.getElementById("deck-results");
 const deckDownloadZipBtn = document.getElementById("deck-download-zip");
+const deckDownloadCsvBtn = document.getElementById("deck-download-csv");
 
 // Cache mémoire : évite de re-appeler l'API pour une recherche déjà faite.
 const searchCache = new Map();
@@ -557,6 +558,7 @@ deckGenerateBtn.addEventListener("click", async () => {
   deckStatusEl.textContent = `Génération 0 / ${names.length}...`;
 
   const generatedFiles = []; // { filename, json }
+  const generatedCards = []; // objets carte mergés, pour le CSV "Manager"
   const itemEls = names.map((name) => {
     const li = document.createElement("li");
     const nameSpan = document.createElement("span");
@@ -595,6 +597,7 @@ deckGenerateBtn.addEventListener("click", async () => {
           filename: `${sanitizeFilename(found.name)}.json`,
           json: JSON.stringify(json, null, 2),
         });
+        generatedCards.push(merged);
         setDeckItemStatus(li, "deck-status-ok", "✅ OK");
       }
     } catch (err) {
@@ -612,6 +615,8 @@ deckGenerateBtn.addEventListener("click", async () => {
   if (generatedFiles.length) {
     deckDownloadZipBtn.classList.remove("hidden");
     deckDownloadZipBtn.onclick = () => downloadAsZip(generatedFiles);
+    deckDownloadCsvBtn.classList.remove("hidden");
+    deckDownloadCsvBtn.onclick = () => downloadManagerCsv(generatedCards);
   }
 });
 
@@ -641,6 +646,157 @@ async function downloadAsZip(files) {
   const a = document.createElement("a");
   a.href = url;
   a.download = "cartes-ygopro.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ----------------------------------------------------------------------------
+// Export CSV compatible avec l'import "Manager" (bulk) de l'éditeur.
+// Colonnes et valeurs vérifiées sur src/service/use-card-list/csv.ts du repo
+// ygo-cardmaker. Les colonnes non listées ici sont laissées vides : l'éditeur
+// applique ses valeurs par défaut pour tout ce qu'on ne précise pas.
+// ----------------------------------------------------------------------------
+const CSV_FIELDS = [
+  "Format", "Frame", "Name", "Attribute", "Star", "Spell/Trap Icon", "Art Link",
+  "Type Ability", "Effect", "Set Id", "ATK", "DEF", "Password", "Sticker",
+  "Copyright", "Is Pendulum", "Pendulum Effect", "Pendulum Scale Red",
+  "Pendulum Scale Blue", "Is Link", "Link - Top Left Arrow", "Link - Top Arrow",
+  "Link - Top Right Arrow", "Link - Left Arrow", "Link - Right Arrow",
+  "Link - Bottom Left Arrow", "Link - Bottom Arrow", "Link - Bottom Right Arrow",
+  "Is First Edition", "Is Speed Card", "Is Limited Edition",
+  "Is Duel Terminal Card", "Is Legacy Card", "Foil", "Art Finish", "Card Finish",
+  "Art Crop - X (%)", "Art Crop - Y (%)", "Art Crop - Width (%)",
+  "Art Crop - Height (%)", "Is Using Full Art", "Region", "Star Type",
+  "Star Alignment", "Card Icon Type", "Link Rating", "Opacity - Body",
+  "Opacity - Pendulum", "Opacity - Text", "Opacity - Name",
+  "Opacity - Base Fill", "Opacity - Art Border", "Opacity - Name Border",
+  "Opacity - Effect Box", "Opacity - Boundless", "Has Background",
+  "Background Link", "Is Using Full Background", "Background Type",
+  "Background Crop - X (%)", "Background Crop - Y (%)",
+  "Background Crop - Width (%)", "Background Crop - Height (%)",
+  "Bottom Frame", "Condense Rate", "Use Furigana Helper", "Name Style Type",
+  "Name Style - Font", "Name Style - Fill Style",
+  "Name Style - Headtext Fill Style", "Name Style - Shadow Color",
+  "Name Style - Shadow Offset Y", "Name Style - Shadow Offset X",
+  "Name Style - Shadow Blur", "Name Style - Has Shadow",
+  "Name Style - Line Color", "Name Style - Line Width",
+  "Name Style - Line Offset Y", "Name Style - Line Offset X",
+  "Name Style - Has Outline", "Name Style - Gradient Angle",
+  "Name Style - Gradient Color", "Name Style - Has Gradient",
+  "Name Style - Emboss Pitch", "Name Style - Emboss Yaw",
+  "Name Style - Emboss Thickness", "Name Style - Has Emboss",
+  "Name Style - Preset", "Name Style - Pattern", "Stat Style - Is Custom",
+  "Stat Style - Fill Color", "Stat Style - Has Shadow",
+  "Stat Style - Shadow Color", "Type Style - Is Custom",
+  "Type Style - Fill Color", "Type Style - Has Shadow",
+  "Type Style - Shadow Color", "Effect Style - Is Custom",
+  "Effect Style - Fill Color", "Effect Style - Has Shadow",
+  "Effect Style - Shadow Color", "Effect Style - Upsize",
+  "Effect Style - Font Style", "Effect Style - Background",
+  "Effect Style - Min Line", "Effect Style - Justify Ratio", "Pendulum Size",
+  "Pendulum Effect Style - Is Custom", "Pendulum Effect Style - Fill Color",
+  "Pendulum Effect Style - Has Shadow", "Pendulum Effect Style - Shadow Color",
+  "Pendulum Effect Style - Upsize", "Pendulum Effect Style - Font Style",
+  "Pendulum Effect Style - Background", "Pendulum Effect Style - Min Line",
+  "Pendulum Effect Style - Justify Ratio", "Other Style - Is Custom",
+  "Other Style - Fill Color", "Other Style - Has Shadow",
+  "Other Style - Shadow Color", "Other Finish - Attribute",
+  "Other Finish - Background", "Other Finish - Icon", "Other Finish - Sticker",
+  "Left Frame", "Right Frame", "Bottom Right Frame", "Dye List", "Star List",
+  "Flag", "External Info (JSON)",
+];
+
+// Icône Magie/Piège au format interne attendu par le CSV (majuscules,
+// "NO ICON" et non "None" — différent du champ `icon` du JSON !).
+const RACE_TO_ICON_INTERNAL = {
+  Continuous: "CONTINUOUS",
+  Counter: "COUNTER",
+  Equip: "EQUIP",
+  Field: "FIELD",
+  "Quick-Play": "QUICK-PLAY",
+  Ritual: "RITUAL",
+  Normal: "NO ICON",
+};
+
+function buildIconInternal(card) {
+  if (card.type === "Spell Card" || card.type === "Trap Card") {
+    return RACE_TO_ICON_INTERNAL[card.race] || "NO ICON";
+  }
+  return "NO ICON";
+}
+
+// Attribut au format interne (majuscules : LIGHT/DARK/SPELL/TRAP/NONE...) —
+// différent du champ `attribute` du JSON qui est en Title Case.
+function buildAttributeInternal(card) {
+  if (card.type === "Spell Card") return "SPELL";
+  if (card.type === "Trap Card") return "TRAP";
+  if (!card.attribute) return "NONE";
+  return card.attribute.toUpperCase();
+}
+
+function csvQuote(value) {
+  if (value === undefined || value === null || value === "") return "";
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+function buildCsvRow(card) {
+  const isSpell = card.type === "Spell Card";
+  const isTrap = card.type === "Trap Card";
+  const [baseFrame, pendulumSuffix] = (card.frameType || "").split("_");
+  const isPendulum = pendulumSuffix === "pendulum";
+  const isLink = baseFrame === "link";
+  const links = buildLinkMarkers(card);
+  const img = card.card_images && card.card_images[0];
+
+  const values = {
+    Format: "tcg",
+    Frame: buildLayout(baseFrame).toLowerCase(),
+    Name: card.name,
+    Attribute: buildAttributeInternal(card),
+    Star: String(card.level || card.linkval || ""),
+    "Spell/Trap Icon": buildIconInternal(card),
+    "Art Link": img ? img.image_url_cropped : "",
+    "Type Ability": buildTypeLine(card),
+    Effect: buildEffectText(card),
+    "Set Id": String(card.id || ""),
+    ATK: isSpell || isTrap ? "" : String(card.atk ?? ""),
+    DEF: isSpell || isTrap || isLink ? "" : String(card.def ?? ""),
+    Sticker: "no-sticker",
+    Copyright: "© 2026 YGOPRO.ORG",
+    "Is Pendulum": isPendulum ? "true" : "false",
+    "Pendulum Effect": isPendulum ? card.pend_desc || "" : "",
+    "Pendulum Scale Red": isPendulum ? String(card.scale ?? "0") : "",
+    "Pendulum Scale Blue": isPendulum ? String(card.scale ?? "0") : "",
+    "Is Link": isLink ? "true" : "false",
+    "Link - Top Left Arrow": links.topLeft ? "true" : "false",
+    "Link - Top Arrow": links.topCenter ? "true" : "false",
+    "Link - Top Right Arrow": links.topRight ? "true" : "false",
+    "Link - Left Arrow": links.middleLeft ? "true" : "false",
+    "Link - Right Arrow": links.middleRight ? "true" : "false",
+    "Link - Bottom Left Arrow": links.bottomLeft ? "true" : "false",
+    "Link - Bottom Arrow": links.bottomCenter ? "true" : "false",
+    "Link - Bottom Right Arrow": links.bottomRight ? "true" : "false",
+    // Contrairement au JSON carte-par-carte, le CSV a un vrai champ Region :
+    // ça évite le reset en anglais de la langue de l'icône d'attribut !
+    Region: "fr",
+  };
+
+  return CSV_FIELDS.map((field) => csvQuote(values[field])).join(",");
+}
+
+function buildManagerCsv(cards) {
+  const header = CSV_FIELDS.join(",");
+  const rows = cards.map(buildCsvRow);
+  return [header, ...rows].join("\n");
+}
+
+function downloadManagerCsv(cards) {
+  const csv = buildManagerCsv(cards);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cartes-ygopro-manager.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
