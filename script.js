@@ -739,28 +739,7 @@ function csvQuote(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
-// Tente de récupérer l'image et de l'encoder en base64 (data URI), pour que
-// l'éditeur n'ait plus besoin d'aller la chercher sur un autre site au moment
-// de l'export en masse (source probable de l'erreur "operation is insecure").
-// Repli sur l'URL classique si ça échoue (ex: pas de CORS côté ygoprodeck).
-async function imageUrlToDataUri(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return url;
-    const blob = await res.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn("Impossible d'intégrer l'image en base64, repli sur l'URL :", url, err);
-    return url;
-  }
-}
-
-function buildCsvRow(card, artOverride) {
+function buildCsvRow(card) {
   const isSpell = card.type === "Spell Card";
   const isTrap = card.type === "Trap Card";
   const [baseFrame, pendulumSuffix] = (card.frameType || "").split("_");
@@ -776,7 +755,7 @@ function buildCsvRow(card, artOverride) {
     Attribute: buildAttributeInternal(card),
     Star: String(card.level || card.linkval || ""),
     "Spell/Trap Icon": buildIconInternal(card),
-    "Art Link": artOverride || (img ? img.image_url_cropped : ""),
+    "Art Link": img ? img.image_url_cropped : "",
     "Type Ability": buildTypeLine(card),
     Effect: buildEffectText(card),
     "Set Id": String(card.id || ""),
@@ -805,32 +784,14 @@ function buildCsvRow(card, artOverride) {
   return CSV_FIELDS.map((field) => csvQuote(values[field])).join(",");
 }
 
-async function buildManagerCsv(cards, onProgress) {
+function buildManagerCsv(cards) {
   const header = CSV_FIELDS.join(",");
-  const rows = [];
-
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    const img = card.card_images && card.card_images[0];
-    const artOverride = img ? await imageUrlToDataUri(img.image_url_cropped) : "";
-    rows.push(buildCsvRow(card, artOverride));
-    if (onProgress) onProgress(i + 1, cards.length);
-  }
-
+  const rows = cards.map(buildCsvRow);
   return [header, ...rows].join("\n");
 }
 
-async function downloadManagerCsv(cards) {
-  deckDownloadCsvBtn.disabled = true;
-  const originalLabel = deckDownloadCsvBtn.textContent;
-
-  const csv = await buildManagerCsv(cards, (done, total) => {
-    deckDownloadCsvBtn.textContent = `⏳ Intégration des images ${done} / ${total}...`;
-  });
-
-  deckDownloadCsvBtn.textContent = originalLabel;
-  deckDownloadCsvBtn.disabled = false;
-
+function downloadManagerCsv(cards) {
+  const csv = buildManagerCsv(cards);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
