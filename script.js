@@ -739,14 +739,6 @@ function csvQuote(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
-// wsrv.nl est un proxy d'image gratuit qui renvoie l'image avec les en-têtes
-// CORS corrects, même si le site d'origine (ici images.ygoprodeck.com) ne les
-// fournit pas. Ça évite le "tainted canvas" / "operation is insecure" au
-// moment de l'export en masse des images dans l'éditeur.
-function corsProxyUrl(url) {
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
-}
-
 function buildCsvRow(card) {
   const isSpell = card.type === "Spell Card";
   const isTrap = card.type === "Trap Card";
@@ -763,7 +755,7 @@ function buildCsvRow(card) {
     Attribute: buildAttributeInternal(card),
     Star: String(card.level || card.linkval || ""),
     "Spell/Trap Icon": buildIconInternal(card),
-    "Art Link": img ? corsProxyUrl(img.image_url_cropped) : "",
+    "Art Link": img ? img.image_url_cropped : "",
     "Type Ability": buildTypeLine(card),
     Effect: buildEffectText(card),
     "Set Id": String(card.id || ""),
@@ -794,7 +786,7 @@ function buildCsvRow(card) {
 
 function buildManagerCsv(cards) {
   const header = CSV_FIELDS.join(",");
-  const rows = cards.map((card) => buildCsvRow(card));
+  const rows = cards.map(buildCsvRow);
   return [header, ...rows].join("\n");
 }
 
