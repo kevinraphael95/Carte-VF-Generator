@@ -10,30 +10,28 @@
 const API_BASE = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
 const MIN_QUERY_LENGTH = 2;
 
-const unifiedForm = document.getElementById("unified-form");
-const unifiedInput = document.getElementById("unified-input");
-const unifiedSubmitBtn = document.getElementById("unified-submit");
-const modeBadgeEl = document.getElementById("mode-badge");
+const form = document.getElementById("search-form");
+const input = document.getElementById("search-input");
+const submitBtn = form.querySelector("button[type=submit]");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const detailEl = document.getElementById("card-detail");
-const cardImageWrapEl = document.getElementById("card-image-wrap");
 const cardImageEl = document.getElementById("card-image");
 const copyImageUrlBtn = document.getElementById("copy-image-url");
 const downloadImageEl = document.getElementById("download-image");
 const toggleImageBtn = document.getElementById("toggle-image");
 const cardTitleEl = document.getElementById("card-title");
-const cardFieldsBodyEl = document.getElementById("card-fields-body");
+const cardMetaEl = document.getElementById("card-meta");
 const jsonOutputEl = document.getElementById("json-output");
 const copyJsonBtn = document.getElementById("copy-json");
 const downloadJsonBtn = document.getElementById("download-json");
 
+const deckInput = document.getElementById("deck-input");
+const deckGenerateBtn = document.getElementById("deck-generate");
 const deckStatusEl = document.getElementById("deck-status");
 const deckResultsEl = document.getElementById("deck-results");
 const deckDownloadZipBtn = document.getElementById("deck-download-zip");
 const deckDownloadCsvBtn = document.getElementById("deck-download-csv");
-
-const themeToggleBtn = document.getElementById("theme-toggle");
 
 // Cache mémoire : évite de re-appeler l'API pour une recherche déjà faite.
 const searchCache = new Map();
@@ -44,79 +42,9 @@ const structuralCardCache = new Map();
 // Permet d'annuler une recherche encore en vol si l'utilisateur en relance une autre.
 let activeController = null;
 
-// ----------------------------------------------------------------------------
-// Thème clair / sombre — préférence mémorisée dans localStorage.
-// ----------------------------------------------------------------------------
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  themeToggleBtn.textContent = theme === "light" ? "☾ Thème sombre" : "☀ Thème clair";
-  try {
-    localStorage.setItem("ygo-theme", theme);
-  } catch (err) {
-    // localStorage indisponible (navigation privée très restrictive) — pas grave,
-    // le thème par défaut s'appliquera simplement à chaque visite.
-  }
-}
-
-(function initTheme() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem("ygo-theme");
-  } catch (err) {
-    saved = null;
-  }
-  applyTheme(saved === "light" ? "light" : "dark");
-})();
-
-themeToggleBtn.addEventListener("click", () => {
-  const current = document.documentElement.getAttribute("data-theme");
-  applyTheme(current === "light" ? "dark" : "light");
-});
-
-// ----------------------------------------------------------------------------
-// Champ fusionné : une carte unique, ou une decklist entière. On détecte le
-// mode à la volée à partir du contenu tapé/collé, pas besoin de deux formulaires.
-// ----------------------------------------------------------------------------
-function countDeckEntries(text) {
-  return text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l && !/^(main|extra|side)\s*deck\s*:?$/i.test(l)).length;
-}
-
-function updateModeBadge() {
-  const entries = countDeckEntries(unifiedInput.value);
-  if (entries > 1) {
-    modeBadgeEl.textContent = `Mode decklist détecté — ${entries} carte(s).`;
-    modeBadgeEl.classList.add("mode-deck");
-    unifiedSubmitBtn.textContent = "⚙️ Générer les JSON";
-  } else {
-    modeBadgeEl.textContent =
-      entries === 1
-        ? "Une carte détectée."
-        : "Tape un nom de carte, ou colle une decklist entière.";
-    modeBadgeEl.classList.remove("mode-deck");
-    unifiedSubmitBtn.textContent = "Rechercher";
-  }
-  // Auto-grandit avec le contenu, sans scrollbar interne.
-  unifiedInput.style.height = "auto";
-  unifiedInput.style.height = `${unifiedInput.scrollHeight}px`;
-}
-
-unifiedInput.addEventListener("input", updateModeBadge);
-updateModeBadge();
-
-unifiedForm.addEventListener("submit", async (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const text = unifiedInput.value.trim();
-  const entries = countDeckEntries(text);
-
-  if (entries > 1) {
-    await runDeckGeneration(parseDecklist(text));
-    return;
-  }
-
-  const query = parseDecklist(text)[0] || text;
+  const query = input.value.trim();
   if (query.length < MIN_QUERY_LENGTH) {
     statusEl.textContent = `Tape au moins ${MIN_QUERY_LENGTH} caractères.`;
     return;
@@ -133,7 +61,7 @@ async function search(query) {
   resultsEl.innerHTML = "";
   detailEl.classList.add("hidden");
   statusEl.textContent = "Recherche en cours...";
-  unifiedSubmitBtn.disabled = true;
+  submitBtn.disabled = true;
 
   const cacheKey = query.toLowerCase();
 
@@ -174,7 +102,7 @@ async function search(query) {
       "Erreur pendant la recherche. Réessaie dans quelques secondes (l'API limite les requêtes).";
   } finally {
     if (activeController === controller) {
-      unifiedSubmitBtn.disabled = false;
+      submitBtn.disabled = false;
       activeController = null;
     }
   }
@@ -208,19 +136,10 @@ async function getStructuralCard(card) {
   return structural;
 }
 
-// Catégorie de cadre (normal/effect/fusion/synchro/xyz/link/spell/trap...) à
-// partir du frameType brut de l'API — sert au code couleur des listes et de
-// la fiche carte (voir les variables --frame-* dans style.css).
-function getFrameCategory(card) {
-  const baseFrame = (card.frameType || "").split("_")[0];
-  return baseFrame || "effect";
-}
-
 function renderResults(cards) {
   resultsEl.innerHTML = "";
   cards.slice(0, 25).forEach((card) => {
     const li = document.createElement("li");
-    li.dataset.frame = getFrameCategory(card);
 
     const name = document.createElement("span");
     name.className = "r-name";
@@ -240,8 +159,7 @@ function renderResults(cards) {
 async function showCard(card) {
   detailEl.classList.remove("hidden");
   cardTitleEl.textContent = card.name;
-  cardImageWrapEl.dataset.frame = getFrameCategory(card);
-  cardFieldsBodyEl.innerHTML = "";
+  cardMetaEl.textContent = `${card.type} — ID ${card.id}`;
 
   const img = card.card_images && card.card_images[0];
   if (img) {
@@ -295,7 +213,6 @@ async function showCard(card) {
     json = buildYgoproJson(card);
   }
 
-  renderCardFields(json);
   jsonOutputEl.value = JSON.stringify(json, null, 2);
 
   copyJsonBtn.onclick = () => copyTextToClipboard(jsonOutputEl.value, copyJsonBtn, "📋 Copier le JSON");
@@ -311,35 +228,6 @@ async function showCard(card) {
   };
 
   detailEl.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// Construit la table de champs (Type, Niveau/ATK/DEF, Attribut, Effet) à
-// partir de l'objet déjà produit par buildYgoproJson — évite de recalculer
-// les mêmes champs deux fois. Le JSON brut reste dispo dans le <details>.
-function renderCardFields(json) {
-  const isSpellOrTrap = json.attribute === "Spell" || json.attribute === "Trap";
-  const rows = [["Type", json.type]];
-
-  if (!isSpellOrTrap) {
-    rows.push(["Attribut", json.attribute]);
-    rows.push(["Niveau / ATK / DEF", `${json.level} / ${json.atk} / ${json.def || "-"}`]);
-  }
-
-  if (json.effect) {
-    rows.push(["Effet", json.effect]);
-  }
-
-  cardFieldsBodyEl.innerHTML = "";
-  rows.forEach(([label, value]) => {
-    const tr = document.createElement("tr");
-    const td1 = document.createElement("td");
-    td1.textContent = label;
-    const td2 = document.createElement("td");
-    td2.textContent = value;
-    tr.appendChild(td1);
-    tr.appendChild(td2);
-    cardFieldsBodyEl.appendChild(tr);
-  });
 }
 
 // ----------------------------------------------------------------------------
@@ -656,21 +544,17 @@ function setDeckItemStatus(li, statusClass, text) {
   li.querySelector(".r-type").className = `r-type ${statusClass}`;
 }
 
-async function runDeckGeneration(names) {
+deckGenerateBtn.addEventListener("click", async () => {
+  const names = parseDecklist(deckInput.value);
+
   if (!names.length) {
     deckStatusEl.textContent = "Colle d'abord une decklist.";
     return;
   }
 
-  // Une decklist remplace l'affichage "carte unique" éventuellement en cours.
-  detailEl.classList.add("hidden");
-  resultsEl.innerHTML = "";
-  statusEl.textContent = "";
-
-  unifiedSubmitBtn.disabled = true;
+  deckGenerateBtn.disabled = true;
   deckResultsEl.innerHTML = "";
   deckDownloadZipBtn.classList.add("hidden");
-  deckDownloadCsvBtn.classList.add("hidden");
   deckStatusEl.textContent = `Génération 0 / ${names.length}...`;
 
   const generatedFiles = []; // { filename, json }
@@ -699,7 +583,6 @@ async function runDeckGeneration(names) {
       if (!found) {
         setDeckItemStatus(li, "deck-status-fail", "❌ Introuvable");
       } else {
-        li.dataset.frame = getFrameCategory(found);
         const structural = await getStructuralCard(found);
         const merged = {
           ...structural,
@@ -726,7 +609,7 @@ async function runDeckGeneration(names) {
     await wait(150); // ménage l'API entre deux cartes
   }
 
-  unifiedSubmitBtn.disabled = false;
+  deckGenerateBtn.disabled = false;
   deckStatusEl.textContent = `Terminé : ${generatedFiles.length} / ${names.length} carte(s) générée(s).`;
 
   if (generatedFiles.length) {
@@ -735,7 +618,7 @@ async function runDeckGeneration(names) {
     deckDownloadCsvBtn.classList.remove("hidden");
     deckDownloadCsvBtn.onclick = () => downloadManagerCsv(generatedCards);
   }
-}
+});
 
 async function downloadAsZip(files) {
   if (typeof JSZip === "undefined") {

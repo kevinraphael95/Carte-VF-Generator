@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,56 +8,58 @@
 </head>
 <body>
   <header>
-    <div class="header-top">
-      <div class="header-text">
-        <h1>🐉 Recherche carte Yu-Gi-Oh! (FR) → JSON pour ygopro.org</h1>
-        <p class="subtitle">
-          Cherche une carte par son nom français, ou colle une decklist entière. Récupère le JSON prêt
-          pour <a href="https://ygopro.org/yugioh-card-maker/" target="_blank" rel="noopener">l'éditeur ygopro.org</a>
-          et télécharge l'illustration officielle.
-        </p>
-      </div>
-      <button id="theme-toggle" type="button" class="btn theme-toggle"></button>
-    </div>
+    <h1>🐉 Recherche carte Yu-Gi-Oh! (FR) → JSON pour ygopro.org</h1>
+    <p class="subtitle">
+      Cherche une carte par son nom français, récupère le JSON prêt à être chargé
+      dans <a href="https://ygopro.org/yugioh-card-maker/" target="_blank" rel="noopener">l'éditeur ygopro.org</a>,
+      et télécharge l'illustration officielle.
+    </p>
   </header>
 
   <main>
-    <form id="unified-form">
-      <textarea
-        id="unified-input"
-        placeholder="Ex : Dragon Blanc aux Yeux Bleus
-
-Ou colle une decklist :
-Main Deck:
-1 Dark Magician
-1 Buster Blader
-..."
+    <form id="search-form">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Ex: Dragon Blanc aux Yeux Bleus, Magicien Sombre, Pot de Cupidité..."
         autocomplete="off"
-        spellcheck="false"
-        rows="1"
         required
-      ></textarea>
-      <div class="unified-actions">
-        <p id="mode-badge" class="mode-badge">Tape un nom de carte, ou colle une decklist entière.</p>
-        <button id="unified-submit" type="submit" class="btn btn-primary">Rechercher</button>
-      </div>
+      />
+      <button type="submit">Rechercher</button>
     </form>
 
     <p id="status"></p>
+
     <ul id="results" class="results-list"></ul>
 
-    <div id="deck-progress">
+    <section class="deck-import">
+      <h2>📋 Générer plusieurs cartes depuis une decklist</h2>
+      <p class="subtitle">
+        Colle une liste au format Main/Extra/Side Deck (ex: export ygoprodeck/YDKe classique),
+        une carte par ligne : <code>1 Nom de la carte</code>.
+      </p>
+      <textarea id="deck-input" spellcheck="false" placeholder="Main Deck:
+1 Dark Magician
+1 Buster Blader
+...
+
+Extra Deck:
+1 Paladin des Ténèbres
+...
+
+Side Deck:
+1 Fissure
+..."></textarea>
+      <button id="deck-generate" type="button" class="btn">⚙️ Générer les JSON</button>
       <p id="deck-status"></p>
-      <ul id="deck-results" class="results-list deck-status-list"></ul>
-      <div class="deck-downloads">
-        <button id="deck-download-zip" type="button" class="btn hidden">📦 Télécharger tous les JSON (.zip)</button>
-        <button id="deck-download-csv" type="button" class="btn hidden">📑 Télécharger le CSV (import "Manager")</button>
-      </div>
-    </div>
+      <ul id="deck-results" class="results-list"></ul>
+      <button id="deck-download-zip" type="button" class="btn hidden">📦 Télécharger tous les JSON (.zip)</button>
+      <button id="deck-download-csv" type="button" class="btn hidden">📑 Télécharger le CSV (import "Manager")</button>
+    </section>
 
     <section id="card-detail" class="card-detail hidden">
       <div class="card-detail-grid">
-        <div class="card-image-wrap" id="card-image-wrap">
+        <div class="card-image-wrap">
           <img id="card-image" alt="Illustration de la carte" />
           <button id="copy-image-url" type="button" class="btn">
             🔗 Copier l'URL de l'image
@@ -70,22 +72,16 @@ Main Deck:
           </button>
         </div>
 
-        <div class="card-info-wrap">
+        <div class="card-json-wrap">
           <h2 id="card-title"></h2>
-
-          <table class="card-fields">
-            <tbody id="card-fields-body"></tbody>
-          </table>
+          <p id="card-meta"></p>
 
           <div class="json-actions">
-            <button id="copy-json" type="button" class="btn">📋 Copier le JSON</button>
-            <button id="download-json" type="button" class="btn">💾 Télécharger le .json</button>
+            <button id="copy-json" type="button">📋 Copier le JSON</button>
+            <button id="download-json" type="button">💾 Télécharger le .json</button>
           </div>
 
-          <details class="json-raw">
-            <summary>Voir le JSON brut</summary>
-            <textarea id="json-output" readonly spellcheck="false"></textarea>
-          </details>
+          <textarea id="json-output" readonly spellcheck="false"></textarea>
         </div>
       </div>
     </section>
